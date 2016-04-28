@@ -63,7 +63,7 @@ class AceClient(object):
         self._seekback = 0
         # Did we get START command again? For seekback.
         self._started_again = False
-        
+
         self._idleSince = time.time()
         self._lock = threading.Condition(threading.Lock())
         self._streamReaderConnection = None
@@ -197,6 +197,10 @@ class AceClient(object):
         cid = self._cidresult.get(True, 5)
         return '' if not cid or cid == '' else cid[2:]
 
+    def GETCONTENTINFO(self, datatype, url):
+        contentinfo = self.LOADASYNC(datatype, url)
+        return contentinfo
+
     def getUrl(self, timeout=40):
         # Logger
         logger = logging.getLogger("AceClient_getURL")
@@ -213,7 +217,7 @@ class AceClient(object):
         logger = logging.getLogger("StreamReader")
         self._streamReaderState = 1
         logger.debug("Opening video stream: %s" % url)
-        
+
         try:
             connection = self._streamReaderConnection = urllib2.urlopen(url)
 
@@ -224,15 +228,15 @@ class AceClient(object):
             if connection.getcode() != 200:
                 logger.error("Failed to open video stream %s" % connection)
                 return
-                
+
             with self._lock:
                 self._streamReaderState = 2
                 self._lock.notifyAll()
-            
+
             while True:
                 data = None
                 clients = counter.getClients(cid)
-                
+
                 try:
                     data = connection.read(AceConfig.readchunksize)
                 except:
@@ -243,7 +247,7 @@ class AceClient(object):
                         if len(self._streamReaderQueue) == AceConfig.readcachesize:
                             self._streamReaderQueue.popleft()
                         self._streamReaderQueue.append(data)
-                    
+
                     for c in clients:
                         try:
                             c.addChunk(data, 5.0)
@@ -270,11 +274,11 @@ class AceClient(object):
                 self._streamReaderState = 3
                 self._lock.notifyAll()
             counter.deleteAll(cid)
-    
+
     def closeStreamReader(self):
         logger = logging.getLogger("StreamReader")
         c = self._streamReaderConnection
-        
+
         if c:
             self._streamReaderConnection = None
             c.close()
@@ -319,7 +323,7 @@ class AceClient(object):
                     # Parse HELLO
                     if 'version_code=' in self._recvbuffer:
                         v = self._recvbuffer.find('version_code=')
-                        self._engine_version_code = int(self._recvbuffer[v+13:v+20])
+                        self._engine_version_code = int(self._recvbuffer[v + 13:v + 20])
 
                     if 'key=' in self._recvbuffer:
                         self._request_key_begin = self._recvbuffer.find('key=')
@@ -435,7 +439,7 @@ class AceClient(object):
                     logger.debug("RESUME event")
                     gevent.sleep(self._pausedelay)
                     self._resumeevent.set()
-                
+
                 elif self._recvbuffer.startswith('##') or len(self._recvbuffer) == 0:
                     self._cidresult.set(self._recvbuffer)
-                    logger.debug("CID: %s" %self._recvbuffer)
+                    logger.debug("CID: %s" % self._recvbuffer)
