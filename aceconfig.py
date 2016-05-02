@@ -52,7 +52,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     httphost = '0.0.0.0'
     # HTTP Server port
     httpport = 8000
-    # Read the video input stream in chunks of the following size    
+    # Read the video input stream in chunks of the following size
     readchunksize = 8192
     # Cache the following number of the tailing chunks
     readcachesize = 1000
@@ -91,12 +91,13 @@ class AceConfig(acedefconfig.AceDefConfig):
     # If set to true, you need to edit vlccmd like this:
     # ace_player.exe -I telnet --clock-jitter -1 --network-caching -1 --sout-mux-caching 2000 --telnet-password admin
     # to point ace_player.exe, not vlc.exe!!!
-    vlcuseaceplayer = False
+    vlcuseaceplayer = True
     # Spawn VLC automaticaly
-    vlcspawn = False
+    vlcspawn = True
     # VLC cmd line (use `--file-logging --logfile=filepath` to write log)
     # Please use the full path to executable for Windows, for example - C:\\Program Files\\VideoLAN\\VLC\\vlc.exe
     vlccmd = "vlc -I telnet --clock-jitter -1 --network-caching -1 --sout-mux-caching 2000 --telnet-password admin --telnet-port 4212"
+    vlccmd = "ace_player.exe -I telnet --clock-jitter -1 --network-caching -1 --sout-mux-caching 2000 --telnet-password admin"
     # VLC spawn timeout
     # Adjust this if you get error 'Cannot spawn VLC!'
     vlcspawntimeout = 5
@@ -105,20 +106,22 @@ class AceConfig(acedefconfig.AceDefConfig):
     # VLC telnet interface port
     vlcport = 4212
     # VLC streaming port (you shouldn't set it in VLC itself)
-    vlcoutport = 8081
+    vlcoutport = 8099
     # VLC telnet interface password
     vlcpass = 'admin'
     # Pre-access (HTTP) VLC parameters
     # You can add transcode options here
     # Something like #transcode{acodec=mpga,ab=128,channels=2,samplerate=44100}
+    # vlcpreaccess = '#transcode{vcodec=h264,venc=x264{cabac=yes,nf=yes,chroma-me=yes,partitions=-parti8x8-parti4x4-partp8x8-partb8x8,me=dia,keyint=15,min-keyint=8,scenecut=0,ipratio=0.71,bframes=0,qcomp=0.6,qpmin=10,qpmax=51,qpstep=4,ref=1,direct=auto,trellis=0,bpyramid=no,mixed-refs=no,weightb=no,8x8dct=no,fast-pskip=yes,mbtree=no,weightp=0,aq-mode=0,lookahead=0},vb=800,width=1920,height=1080,acodec=mpga,fps=25}'
     vlcpreaccess = ''
+
     # VLC muxer. You probably want one of these streamable muxers:
     # ts, asf, flv, ogg, mkv
     # You can use ffmpeg muxers too, if your VLC is built with it
     # ffmpeg{mux=NAME} (i.e. ffmpeg{mux=mpegts})
     # VLC's ts muxer sometimes can work badly, but that's the best choice for
     # now.
-    vlcmux = 'ts'
+    vlcmux = 'mkv'
     # Force ffmpeg INPUT demuxer in VLC. Sometimes can help.
     vlcforceffmpeg = False
     # Stream start delay for dumb players (in seconds)
@@ -130,20 +133,20 @@ class AceConfig(acedefconfig.AceDefConfig):
     # Transcoding configuration
     # ----------------------------------------------------
     # Enable/disable transcoding
-    transcode = False
-    # Dictionary with a set of transcoding commands. Transcoding command is an 
-    # executable commandline expression that reads an input stream from STDIN 
-    # and writes a transcoded stream to STDOUT. The commands are selected 
-    # according to the value of the 'fmt' request parameter. For example, the 
+    transcode = True
+    # Dictionary with a set of transcoding commands. Transcoding command is an
+    # executable commandline expression that reads an input stream from STDIN
+    # and writes a transcoded stream to STDOUT. The commands are selected
+    # according to the value of the 'fmt' request parameter. For example, the
     # following url:
     # http://loclahost:8000/channels/?type=m3u&fmt=mp2
-    # contains the fmt=mp2. It means that the 'mp2' command will  be used for 
+    # contains the fmt=mp2. It means that the 'mp2' command will  be used for
     # transcoding. You may add any number of commands to this dictionary.
     transcodecmd = dict()
-    # transcodecmd['mp2'] = 'ffmpeg -i - -c:a mp2 -c:v mpeg2video -f mpegts -qscale:v 2 -'.split()
-    # transcodecmd['mkv'] = 'ffmpeg -i - -c:a copy -c:v copy -f matroska -'.split()
-    # transcodecmd['default'] = 'ffmpeg -i - -c:a copy -c:v copy -f mpegts -'.split()
-    
+    transcodecmd['mp2'] = 'ffmpeg -i - -c:a mp2 -c:v mpeg2video -f mpegts -qscale:v 2 -'.split()
+    transcodecmd['mkv'] = 'ffmpeg -i - -c:a copy -c:v copy -f matroska -'.split()
+    transcodecmd['default'] = 'ffmpeg -i - -c:a copy -c:v copy -f mpegts -'.split()
+
     # ----------------------------------------------------
     videodelay = 0
     # Obey PAUSE and RESUME commands from Engine
@@ -175,7 +178,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     # to detect MIME-type or something before playing which Ace Stream handles badly.
     # We send them 200 OK and do nothing.
     # We add their User-Agents here
-    fakeuas = ('Mozilla/5.0 IMC plugin Macintosh', )
+    fakeuas = ('Mozilla/5.0 IMC plugin Macintosh',)
     #
     # Some video players have very short timeout and can disconnect from the proxy
     # before the headers sent.
@@ -191,7 +194,6 @@ class AceConfig(acedefconfig.AceDefConfig):
     # Log message format
     logfmt = '%(asctime)s %(levelname)s %(threadName)s %(filename)s:%(lineno)d %(name)s| %(message)s'
     # Log date format
-    logdatefmt='%d.%m %H:%M:%S'
+    logdatefmt = '%d.%m %H:%M:%S'
     # Full path to a log file
-    logfile = None 
-    
+    logfile = None
