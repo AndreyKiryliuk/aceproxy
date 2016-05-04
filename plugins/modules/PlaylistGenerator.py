@@ -38,18 +38,18 @@ class PlaylistGenerator(object):
             item['group'] = ''
         if not item.has_key('logo'):
             item['logo'] = ''
-        
+
         return config.m3uchanneltemplate % item
 
     def exportm3u(self, hostport, path='', add_ts=False, empty_header=False, archive=False, process_url=True, header=None, fmt=None):
         '''
         Exports m3u playlist
         '''
-        
+
         if add_ts:
             # Adding ts:// after http:// for some players
             hostport = 'ts://' + hostport
-            
+
         if header is None:
             if not empty_header:
                 itemlist = config.m3uheader
@@ -57,7 +57,7 @@ class PlaylistGenerator(object):
                 itemlist = config.m3uemptyheader
         else:
             itemlist = header
-        
+
         for i in self.itemlist:
             item = i.copy()
             item['name'] = item['name'].replace('"', "'").replace(',', '.')
@@ -69,19 +69,19 @@ class PlaylistGenerator(object):
                 item['url'] = re.sub('^(http.+)$', lambda match: 'http://' + hostport + path + '/torrent/' + \
                                  urllib2.quote(match.group(0), '') + '/stream.mp4', url,
                                        flags=re.MULTILINE)
-                if url == item['url']: # For PIDs
+                if url == item['url']:  # For PIDs
                     item['url'] = re.sub('^(acestream://)?(?P<pid>[0-9a-f]{40})$', 'http://' + hostport + path + '/pid/\\g<pid>/stream.mp4',
                                         url, flags=re.MULTILINE)
-                if archive and url == item['url']: # For archive channel id's
+                if archive and url == item['url']:  # For archive channel id's
                     item['url'] = re.sub('^([0-9]+)$', lambda match: 'http://' + hostport + path + '/archive/play?id=' + match.group(0),
                                         url, flags=re.MULTILINE)
-                if not archive and url == item['url']: # For channel id's
+                if not archive and url == item['url']:  # For channel id's
                     item['url'] = re.sub('^([0-9]+)$', lambda match: 'http://' + hostport + path + '/channels/play?id=' + match.group(0),
                                             url, flags=re.MULTILINE)
-                if url == item['url']: # For channel names
+                if url == item['url']:  # For channel names
                     item['url'] = re.sub('^([^/]+)$', lambda match: 'http://' + hostport + path + '/' + match.group(0),
                                             url, flags=re.MULTILINE)
-            
+
             if fmt:
                 if '?' in item['url']:
                     item['url'] = item['url'] + '&fmt=' + fmt
@@ -91,3 +91,19 @@ class PlaylistGenerator(object):
             itemlist += PlaylistGenerator._generatem3uline(item)
 
         return itemlist
+
+    def exportxml(self, hostport, path='',):
+        try:
+            chans = ''
+            for i in self.itemlist:
+                i['hostport'] = 'http://' + hostport + path
+                try:
+                    if i['type'] == 'channel':
+                        chans += config.xml_channel_template % i
+                    else:
+                        chans += config.xml_stream_template % i
+                except:
+                    chans += config.xml_channel_template % i
+            return config.xml_template % {'items': chans}
+        except:
+            return ''

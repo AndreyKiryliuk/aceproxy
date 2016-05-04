@@ -213,21 +213,55 @@ class AceClient(object):
             logger.error(errmsg)
             raise AceException(errmsg)
 
-    def startStreamReader(self, url, cid, counter):
+    def startStreamReader(self, url, cid, counter, req_headers={}):
         logger = logging.getLogger("StreamReader")
         self._streamReaderState = 1
         logger.debug("Opening video stream: %s" % url)
+        logger.debug("req_headers: %s" % str(req_headers))
 
         try:
-            connection = self._streamReaderConnection = urllib2.urlopen(url)
+            request = urllib2.Request(url, headers=req_headers)
+            connection = self._streamReaderConnection = urllib2.urlopen(request)
+
+            logger.debug("Ace Responce Code: %s" % connection.getcode())
+            logger.debug('resp headers: %s' % connection.info().headers)
+            logger.debug('resp info: %s' % connection.info())
+
 
             if url.endswith('.m3u8'):
                 logger.debug("Can't stream HLS in non VLC mode: %s" % url)
                 return
 
-            if connection.getcode() != 200:
+            if connection.getcode() not in (200, 206):
                 logger.error("Failed to open video stream %s" % connection)
                 return
+
+            clients = counter.getClients(cid)
+            if clients:
+                for c in clients:
+                    if c.handler.connected:
+                        c.handler.send_response(connection.getcode())
+
+                        FORWARD_HEADERS = ['Content-Range',
+                                           'Connection',
+                                           'Keep-Alive',
+                                           'Content-Type',
+                                           'Accept-Ranges',
+                                           'Content-Length',
+                                           ]
+                        SKIP_HEADERS = ['Server', 'Date']
+
+                        for k in connection.info().headers:
+                            if k.split(':')[0] not in (FORWARD_HEADERS + SKIP_HEADERS):
+                                logger.debug('NEW HEADERS: %s' % k.split(':')[0])
+                        for h in FORWARD_HEADERS:
+                            if connection.info().getheader(h):
+                                c.handler.send_header(h, connection.info().getheader(h))
+                                logger.debug('key=%s value=%s' % (h, connection.info().getheader(h)))
+#                         for k in connection.info().headers:
+#                             logger.debug('key=%s value=%s' % (k.split(':')[0], connection.info().getheader(k.split(':')[0].lower())))
+#                             c.handler.send_header(k.split(':')[0], connection.info().getheader(k.split(':')[0].lower()))
+                        c.handler.end_headers()
 
             with self._lock:
                 self._streamReaderState = 2
@@ -240,6 +274,7 @@ class AceClient(object):
                 try:
                     data = connection.read(AceConfig.readchunksize)
                 except:
+                    logger.debug("no get data")
                     break;
 
                 if data and clients:

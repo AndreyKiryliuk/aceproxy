@@ -1954,12 +1954,17 @@ def SearchN(category, sort, text, filtr, page='0'):
                     try:fanart = dict['fanart']
                     except:fanart = cover
 
+#                     print 'sids="%s"' % sids
+#                     print 'size="%s"' % size
+#                     print 'tTitle[5]="%s"' % tTitle[5]
+#                     exit()
 
-                    Title = "[%s]" % urllib.quote_plus(str(sids + "|" + size + "| " + tTitle[5]))
+                    Title = "[%s]" % unicode(str(sids.strip() + " | " + size.strip() + " | " + tTitle[5].strip()), 'utf-8')
                     itemdict = {'title': Title,
                                 'url': '/rutor/list/%s/' % urllib.quote_plus(row_url),
                                 'description_title': Title,
                                 'description': '',
+                                'type': 'channel'
                                 }
                     playlist.addItem(itemdict)
 

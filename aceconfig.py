@@ -93,7 +93,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     # to point ace_player.exe, not vlc.exe!!!
     vlcuseaceplayer = True
     # Spawn VLC automaticaly
-    vlcspawn = True
+    vlcspawn = False
     # VLC cmd line (use `--file-logging --logfile=filepath` to write log)
     # Please use the full path to executable for Windows, for example - C:\\Program Files\\VideoLAN\\VLC\\vlc.exe
     vlccmd = "vlc -I telnet --clock-jitter -1 --network-caching -1 --sout-mux-caching 2000 --telnet-password admin --telnet-port 4212"
@@ -133,7 +133,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     # Transcoding configuration
     # ----------------------------------------------------
     # Enable/disable transcoding
-    transcode = True
+    transcode = False
     # Dictionary with a set of transcoding commands. Transcoding command is an
     # executable commandline expression that reads an input stream from STDIN
     # and writes a transcoded stream to STDOUT. The commands are selected
@@ -142,10 +142,10 @@ class AceConfig(acedefconfig.AceDefConfig):
     # http://loclahost:8000/channels/?type=m3u&fmt=mp2
     # contains the fmt=mp2. It means that the 'mp2' command will  be used for
     # transcoding. You may add any number of commands to this dictionary.
-    transcodecmd = dict()
-    transcodecmd['mp2'] = 'ffmpeg -i - -c:a mp2 -c:v mpeg2video -f mpegts -qscale:v 2 -'.split()
-    transcodecmd['mkv'] = 'ffmpeg -i - -c:a copy -c:v copy -f matroska -'.split()
-    transcodecmd['default'] = 'ffmpeg -i - -c:a copy -c:v copy -f mpegts -'.split()
+#     transcodecmd = dict()
+#     transcodecmd['mp2'] = 'ffmpeg -i - -c:a mp2 -c:v mpeg2video -f mpegts -qscale:v 2 -'.split()
+#     transcodecmd['mkv'] = 'ffmpeg -i - -c:a copy -c:v copy -f matroska -'.split()
+#     transcodecmd['default'] = 'ffmpeg -i - -c:a copy -c:v copy -f mpegts -'.split()
 
     # ----------------------------------------------------
     videodelay = 0
@@ -172,7 +172,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     # In seconds.
     videodestroydelay = 0
     # Pre-buffering timeout. In seconds.
-    videotimeout = 40
+    videotimeout = 140
     #
     # Some video players (mostly STBs and Smart TVs) can generate dummy requests
     # to detect MIME-type or something before playing which Ace Stream handles badly.

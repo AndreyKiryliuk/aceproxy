@@ -362,7 +362,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             else:
                 if not fmt:
                     fmt = self.reqparams.get('fmt')[0] if self.reqparams.has_key('fmt') else None
-                self.client.handle(shouldStart, self.url, fmt)
+                logger.debug('self.headers=%s' % str(self.headers))
+                self.client.handle(shouldStart, self.url, fmt, self.headers)
 
         except (aceclient.AceException, vlcclient.VlcException, urllib2.URLError) as e:
             logger.error("Exception: " + repr(e))
@@ -450,12 +451,12 @@ class Client:
         self.lock = threading.Condition(threading.Lock())
         self.queue = deque()
 
-    def handle(self, shouldStart, url, fmt=None):
+    def handle(self, shouldStart, url, fmt=None, req_headers=None):
         logger = logging.getLogger("ClientHandler")
 
         if shouldStart:
             self.ace._streamReaderState = 1
-            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter)
+            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter, req_headers)
             gevent.sleep()
 
         with self.ace._lock:
@@ -474,14 +475,14 @@ class Client:
                 self.handler.dieWithError()
                 return
 
-        if self.handler.connected:
-            self.handler.send_response(200)
-            self.handler.send_header("Connection", "Keep-Alive")
-            self.handler.send_header("Keep-Alive", "timeout=15, max=100")
-            self.handler.send_header("Content-Type", "video/x-matroska")
-            self.handler.send_header("Accept-Ranges", "bytes")
-            self.handler.send_header("Content-Length", "7602181228")
-            self.handler.end_headers()
+#         if self.handler.connected:
+#             self.handler.send_response(200)
+#             self.handler.send_header("Connection", "Keep-Alive")
+#             self.handler.send_header("Keep-Alive", "timeout=15, max=100")
+#             self.handler.send_header("Content-Type", "video/x-matroska")
+#             self.handler.send_header("Accept-Ranges", "bytes")
+#             self.handler.send_header("Content-Length", "7602181228")
+#             self.handler.end_headers()
 
         if AceConfig.transcode:
             if not fmt or not AceConfig.transcodecmd.has_key(fmt):
