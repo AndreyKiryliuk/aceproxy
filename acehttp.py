@@ -118,7 +118,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     logger.debug("Client is not connected, terminating")
                     break
 
-                data = self.video.read(8192)
+                data = self.video.read(1024)
                 if data and self.connected:
                     self.wfile.write(data)
                 else:
