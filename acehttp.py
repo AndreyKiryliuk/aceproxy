@@ -118,8 +118,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     logger.debug("Client is not connected, terminating")
                     break
 
-                data = self.video.read(4096)
+                data = self.video.read(8192)
                 if data and self.connected:
+                    # logger.debug('w')
                     self.wfile.write(data)
                 else:
                     logger.warning("Video connection closed")
@@ -220,7 +221,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.requrl = urlparse.urlparse(self.path)
         self.reqparams = urlparse.parse_qs(self.requrl.query)
         self.path = self.requrl.path[:-1] if self.requrl.path.endswith('/') else self.requrl.path
-
+        for key in self.headers.dict:
+            logger.debug("%s: %s" % (key, self.headers.dict[key]))
         # Check if third parameter exists
         # …/pid/blablablablabla/video.mpg
         #                      |_________|
@@ -297,8 +299,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 # Getting URL
                 self.url = self.client.ace.getUrl(AceConfig.videotimeout)
                 # Rewriting host for remote Ace Stream Engine
-                self.url = self.url.replace('127.0.0.1', AceConfig.acehost)
-
+                self.url = self.client.ace.url = self.url.replace('127.0.0.1', AceConfig.acehost)
+            # else:
+             #   self.url = self.client.ace.url
             self.errorhappened = False
 
             if shouldStart:
@@ -362,8 +365,57 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             else:
                 if not fmt:
                     fmt = self.reqparams.get('fmt')[0] if self.reqparams.has_key('fmt') else None
-                logger.debug('self.headers=%s' % str(self.headers))
-                self.client.handle(shouldStart, self.url, fmt, self.headers)
+#                logger.debug('self.headers=%s' % type(self.headers))
+#                logger.debug('self.headers=%s' % str(self.headers))
+#                self.client.handle(shouldStart, self.url, fmt, self.headers)
+#                logger.debug('tut 368')
+                # Sending client headers to videostream
+                if self.url:
+#                    self.video = urllib2.Request(self.url)
+#                    for key in self.headers.dict:
+#                        self.video.add_header(key, self.headers.dict[key])
+#                    logger.debug("%s: %s" % (key, self.headers.dict[key]))
+
+#                    self.video = urllib2.urlopen(self.video)
+                    request = urllib2.Request(self.url, headers=self.headers)
+                    self.video = urllib2.urlopen(request, timeout=120)
+
+                    self.send_response(self.video.getcode())
+
+                    FORWARD_HEADERS = ['Content-Range',
+                                       'Connection',
+                                       'Keep-Alive',
+                                       'Content-Type',
+                                       'Accept-Ranges',
+                                       'X-Content-Duration',
+                                       'Content-Length',
+                                       ]
+                    SKIP_HEADERS = ['Server', 'Date']
+
+                    for k in self.video.info().headers:
+                        if k.split(':')[0] not in (FORWARD_HEADERS + SKIP_HEADERS):
+                            logger.debug('NEW HEADERS: %s' % k.split(':')[0])
+                    for h in FORWARD_HEADERS:
+                        if self.video.info().getheader(h):
+                            self.send_header(h, self.video.info().getheader(h))
+                            logger.debug('key=%s value=%s' % (h, self.video.info().getheader(h)))
+
+                    self.end_headers()
+                    logger.debug("Headers sent")
+
+                    # Run proxyReadWrite
+                    self.proxyReadWrite()
+                else:
+                    self.send_response(206)
+                    self.send_header('Content-Range', 'bytes 5016536819-5016606675/5016606676')
+                    self.send_header('Connection', 'Keep-Alive')
+                    self.send_header('Keep-Alive', 'timeout=15, max=100')
+                    self.send_header('Content-Type', 'video/x-matroska')
+                    self.send_header('Accept-Ranges', 'bytes')
+                    self.send_header('X-Content-Duration', '7882.00834298')
+                    self.send_header('Content-Length', '69857')
+                    self.end_headers()
+
 
         except (aceclient.AceException, vlcclient.VlcException, urllib2.URLError) as e:
             logger.error("Exception: " + repr(e))
@@ -371,6 +423,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.dieWithError()
         except gevent.GreenletExit:
             # hangDetector told us about client disconnection
+            logger.debug('greenletExit')
             pass
         except Exception:
             # Unknown exception
@@ -454,26 +507,38 @@ class Client:
     def handle(self, shouldStart, url, fmt=None, req_headers=None):
         logger = logging.getLogger("ClientHandler")
 
+        logger.debug('tut 461')
+
         if shouldStart:
-            self.ace._streamReaderState = 1
-            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter, req_headers)
-            gevent.sleep()
+            self.handler.send_response(302)
+            self.handler.send_header("Location", url)
+            self.handler.end_headers()
+        time.sleep(200)
+#            logger.debug('tut 361')
+#            self.ace._streamReaderState = 1
+#            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter, req_headers)
+#            gevent.sleep()
+#        else:
+#            logger.debug('tut 361')
+#            self.ace._streamReaderState = 1
+#            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter, req_headers)
+#            gevent.sleep()
 
-        with self.ace._lock:
-            start = time.time()
-            while self.handler.connected and self.ace._streamReaderState == 1:
-                remaining = start + 5.0 - time.time()
-                if remaining > 0:
-                    self.ace._lock.wait(remaining)
-                else:
-                    logger.warning("Video stream not opened in 5 seconds - disconnecting")
-                    self.handler.dieWithError()
-                    return
+#        with self.ace._lock:
+#            start = time.time()
+#            while self.handler.connected and self.ace._streamReaderState == 1:
+#                remaining = start + 115.0 - time.time()
+#                if remaining > 0:
+#                    self.ace._lock.wait(remaining)
+#                else:
+#                    logger.warning("Video stream not opened in 5 seconds - disconnecting")
+#                   self.handler.dieWithError()
+#                    return
 
-            if self.handler.connected and self.ace._streamReaderState != 2:
-                logger.warning("No video stream found")
-                self.handler.dieWithError()
-                return
+ #           if self.handler.connected and self.ace._streamReaderState != 2:
+ #               logger.warning("No video stream found")
+ #               self.handler.dieWithError()
+ #               return
 
 #         if self.handler.connected:
 #             self.handler.send_response(200)

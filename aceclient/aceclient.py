@@ -247,6 +247,7 @@ class AceClient(object):
                                            'Keep-Alive',
                                            'Content-Type',
                                            'Accept-Ranges',
+                                           'X-Content-Duration',
                                            'Content-Length',
                                            ]
                         SKIP_HEADERS = ['Server', 'Date']

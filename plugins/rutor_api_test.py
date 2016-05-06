@@ -1961,7 +1961,7 @@ def SearchN(category, sort, text, filtr, page='0'):
 
                     Title = "[%s]" % unicode(str(sids.strip() + " | " + size.strip() + " | " + tTitle[5].strip()), 'utf-8')
                     itemdict = {'title': Title,
-                                'url': '/rutor/list/%s/' % urllib.quote_plus('http://rutor.info/' + row_url),
+                                'url': '/rutor/list/%s/' % urllib.quote_plus(row_url),
                                 'description_title': Title,
                                 'description': '',
                                 'type': 'channel'
