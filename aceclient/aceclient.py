@@ -63,7 +63,7 @@ class AceClient(object):
         self._seekback = 0
         # Did we get START command again? For seekback.
         self._started_again = False
-
+        
         self._idleSince = time.time()
         self._lock = threading.Condition(threading.Lock())
         self._streamReaderConnection = None
@@ -213,69 +213,33 @@ class AceClient(object):
             logger.error(errmsg)
             raise AceException(errmsg)
 
-    def startStreamReader(self, url, cid, counter, req_headers={}):
+    def startStreamReader(self, url, cid, counter):
         logger = logging.getLogger("StreamReader")
         self._streamReaderState = 1
         logger.debug("Opening video stream: %s" % url)
-        logger.debug("req_headers: %s" % str(req_headers))
-
+        
         try:
-            request = urllib2.Request(url, headers=req_headers)
-            connection = self._streamReaderConnection = urllib2.urlopen(request)
-
-            logger.debug("Ace Responce Code: %s" % connection.getcode())
-            logger.debug('resp headers: %s' % connection.info().headers)
-            logger.debug('resp info: %s' % connection.info())
-
+            connection = self._streamReaderConnection = urllib2.urlopen(url)
 
             if url.endswith('.m3u8'):
                 logger.debug("Can't stream HLS in non VLC mode: %s" % url)
                 return
 
-            if connection.getcode() not in (200, 206):
+            if connection.getcode() != 200:
                 logger.error("Failed to open video stream %s" % connection)
                 return
-
-            clients = counter.getClients(cid)
-            if clients:
-                for c in clients:
-                    if c.handler.connected:
-                        c.handler.send_response(connection.getcode())
-
-                        FORWARD_HEADERS = ['Content-Range',
-                                           'Connection',
-                                           'Keep-Alive',
-                                           'Content-Type',
-                                           'Accept-Ranges',
-                                           'X-Content-Duration',
-                                           'Content-Length',
-                                           ]
-                        SKIP_HEADERS = ['Server', 'Date']
-
-                        for k in connection.info().headers:
-                            if k.split(':')[0] not in (FORWARD_HEADERS + SKIP_HEADERS):
-                                logger.debug('NEW HEADERS: %s' % k.split(':')[0])
-                        for h in FORWARD_HEADERS:
-                            if connection.info().getheader(h):
-                                c.handler.send_header(h, connection.info().getheader(h))
-                                logger.debug('key=%s value=%s' % (h, connection.info().getheader(h)))
-#                         for k in connection.info().headers:
-#                             logger.debug('key=%s value=%s' % (k.split(':')[0], connection.info().getheader(k.split(':')[0].lower())))
-#                             c.handler.send_header(k.split(':')[0], connection.info().getheader(k.split(':')[0].lower()))
-                        c.handler.end_headers()
-
+                
             with self._lock:
                 self._streamReaderState = 2
                 self._lock.notifyAll()
-
+            
             while True:
                 data = None
                 clients = counter.getClients(cid)
-
+                
                 try:
                     data = connection.read(AceConfig.readchunksize)
                 except:
-                    logger.debug("no get data")
                     break;
 
                 if data and clients:
@@ -283,7 +247,7 @@ class AceClient(object):
                         if len(self._streamReaderQueue) == AceConfig.readcachesize:
                             self._streamReaderQueue.popleft()
                         self._streamReaderQueue.append(data)
-
+                    
                     for c in clients:
                         try:
                             c.addChunk(data, 5.0)
@@ -310,11 +274,11 @@ class AceClient(object):
                 self._streamReaderState = 3
                 self._lock.notifyAll()
             counter.deleteAll(cid)
-
+    
     def closeStreamReader(self):
         logger = logging.getLogger("StreamReader")
         c = self._streamReaderConnection
-
+        
         if c:
             self._streamReaderConnection = None
             c.close()
@@ -359,7 +323,7 @@ class AceClient(object):
                     # Parse HELLO
                     if 'version_code=' in self._recvbuffer:
                         v = self._recvbuffer.find('version_code=')
-                        self._engine_version_code = int(self._recvbuffer[v + 13:v + 20])
+                        self._engine_version_code = int(self._recvbuffer[v+13:v+20])
 
                     if 'key=' in self._recvbuffer:
                         self._request_key_begin = self._recvbuffer.find('key=')
@@ -475,7 +439,7 @@ class AceClient(object):
                     logger.debug("RESUME event")
                     gevent.sleep(self._pausedelay)
                     self._resumeevent.set()
-
+                
                 elif self._recvbuffer.startswith('##') or len(self._recvbuffer) == 0:
                     self._cidresult.set(self._recvbuffer)
                     logger.debug("CID: %s" % self._recvbuffer)

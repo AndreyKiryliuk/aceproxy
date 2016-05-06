@@ -22,7 +22,7 @@ class Rutor(AceProxyPlugin):
     def __init__(self, AceConfig, AceStuff):
         self.params = None
         self.AceStuff = AceStuff
-        self.logger = logging.getLogger('plugin_rutor')
+        self.logger = logging.getLogger('rutor')
 
     def send_playlist(self, connection, playlist):
         hostport = connection.headers['Host']

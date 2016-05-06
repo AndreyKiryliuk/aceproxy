@@ -142,7 +142,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     # http://loclahost:8000/channels/?type=m3u&fmt=mp2
     # contains the fmt=mp2. It means that the 'mp2' command will  be used for
     # transcoding. You may add any number of commands to this dictionary.
-#     transcodecmd = dict()
+    transcodecmd = dict()
 #     transcodecmd['mp2'] = 'ffmpeg -i - -c:a mp2 -c:v mpeg2video -f mpegts -qscale:v 2 -'.split()
 #     transcodecmd['mkv'] = 'ffmpeg -i - -c:a copy -c:v copy -f matroska -'.split()
 #     transcodecmd['default'] = 'ffmpeg -i - -c:a copy -c:v copy -f mpegts -'.split()
