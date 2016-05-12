@@ -93,7 +93,7 @@ class Rutor(AceProxyPlugin):
                         for filename, fid in contentinfo.get('files'):
                             Title = "[%s]" % filename
                             itemdict = {'title': Title,
-                                        'url': '/torrent/%s/%s/%s.avi' % (torrent_url, fid, filename),
+                                        'url': '/playtorrent/%s/%s/%s.avi' % (torrent_url, fid, filename),
                                         'description_title': Title,
                                         'description': '',
                                         'type': 'stream'
