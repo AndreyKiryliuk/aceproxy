@@ -129,7 +129,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             logger.warning("Video connection dropped")
         finally:
             self.video.close()
-            self.client.destroy()
+            if self.client:
+                self.client.destroy()
 
     def hangDetector(self):
         '''
