@@ -19,7 +19,7 @@ xml_template = """<?xml version="1.0" encoding="utf-8"?>
 
 xml_channel_template = """
 <channel>
-<title><![CDATA[%(title)s]></title>
+<title><![CDATA[%(title)s]]></title>
 <description><![CDATA[<table><tr><td style="vertical-align: top"><img src="logos/open.png" height="128" width="128"></img></td><td>
 <center>
 <table style="width:100%%;font-size:16px;text-align:center;"><tr><td>%(description_title)s</td></tr></table>
@@ -32,7 +32,7 @@ xml_channel_template = """
 
 xml_stream_template = """
 <channel>
-<title><![CDATA[%(title)s]></title>
+<title><![CDATA[%(title)s]]></title>
 <description><![CDATA[<table><tr><td style="vertical-align: top"><img src="logos/open.png" height="128" width="128"></img></td><td>
 <center>
 <table style="width:100%%;font-size:16px;text-align:center;"><tr><td>%(description_title)s</td></tr></table>
