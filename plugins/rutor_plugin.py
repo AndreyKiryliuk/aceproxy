@@ -10,8 +10,8 @@ To use it, go to http://127.0.0.1:8000/helloworld
 from modules.PlaylistGenerator import PlaylistGenerator
 from modules.PluginInterface import AceProxyPlugin
 import urlparse
-from rutor_api_test import SearchN
-import aceclient
+from rutor_api import SearchN
+# import aceclient
 import urllib2
 import logging
 import config.rutor as config
@@ -35,8 +35,6 @@ class Rutor(AceProxyPlugin):
         connection.wfile.write(exported)
 
     def handle(self, connection, headers_only=False):
-        # connection.send_response(200)
-        # connection.end_headers()
 
         query = urlparse.urlparse(connection.path).query
         self.params = urlparse.parse_qs(query)
