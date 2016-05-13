@@ -44,6 +44,7 @@ class Rutor(AceProxyPlugin):
         self.logger.debug('connection.reqtype=%s' % connection.reqtype)
         self.logger.debug(len(connection.splittedpath))
         self.logger.debug('connection.splittedpath=%s' % connection.splittedpath)
+        self.logger.debug('params=%s' % self.params)
 
         if connection.reqtype == 'rutor':
             if len(connection.splittedpath) < 2:
@@ -73,8 +74,10 @@ class Rutor(AceProxyPlugin):
                     # category = '1'
                     sort = '0'
                     text = '0'
-                    try: page = self.params['page']
+                    try: page = self.params['page'][0]
                     except: page = '0'
+                    try: sort = self.params['sort'][0]
+                    except: sort = '0'
                     spr = ["", "", "", "", "", ""]
                     playlist = SearchN(category, sort, text, spr, page)
                     self.send_playlist(connection, playlist)

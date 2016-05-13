@@ -292,7 +292,7 @@ def upd(category, sort, text, n):
         if text == '1':categoryUrl = httpSiteUrl + '/search/' + n + '/' + category + '/000/' + sort + '/' + stext  # )xt( 0/1/110/0
         else: categoryUrl = httpSiteUrl + '/search/' + n + '/' + category + '/110/' + sort + '/' + stext
 
-
+    print 'categoryUrl=%s' % categoryUrl
     http = GET(categoryUrl, httpSiteUrl, None)
 
     if http == None:
@@ -1977,20 +1977,14 @@ def SearchN(category, sort, text, filtr, page='0'):
                 else: defekt += 1
             else: defekt += 1
 
-
-#     Title = "[НАЙТИ ЕЩЕ]"
-#     row_url = url
-#     try: n = str(int(row_url) + 1)
-#     except: n = "1"
-#     listitem = xbmcgui.ListItem(Title)
-#     listitem.setInfo(type="Video", infoLabels={"Title": Title})
-#     purl = sys.argv[0] + '?mode=SearchN'\
-#         + '&url=' + urllib.quote_plus(n)\
-#         + '&title=' + urllib.quote_plus(repr(filtr))\
-#         + '&category=' + urllib.quote_plus(category)\
-#         + '&sort=' + urllib.quote_plus(sort)\
-#         + '&text=' + urllib.quote_plus(text)
-#     xbmcplugin.addDirectoryItem(handle, purl, listitem, True)
+    Title = u"[НАЙТИ ЕЩЕ]"
+    itemdict = {'title': Title,
+                'url': '/rutor/category/%s/?page=%s' % (category, int(page) + 1),
+                'description_title': Title,
+                'description': '',
+                'type': 'channel'
+                }
+    playlist.addItem(itemdict)
 
     return playlist
 
