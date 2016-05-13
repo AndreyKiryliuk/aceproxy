@@ -90,7 +90,7 @@ class Rutor(AceProxyPlugin):
                         if not self.AceStuff.clientcounter.idleace:
                             self.AceStuff.clientcounter.idleace = self.AceStuff.clientcounter.createAce()
                         contentinfo = self.AceStuff.clientcounter.idleace.GETCONTENTINFO('TORRENT', torrent_url_unquoted)
-                    if contentinfo and contentinfo.get('status') == 1 and contentinfo.get('files'):
+                    if contentinfo and contentinfo.get('status') in (1, 2) and contentinfo.get('files'):
                         for filename, fid in contentinfo.get('files'):
                             Title = "[%s]" % filename
                             itemdict = {'title': Title,
