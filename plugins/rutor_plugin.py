@@ -73,11 +73,11 @@ class Rutor(AceProxyPlugin):
                     sort = '0'
                     text = '0'
                     try: page = self.params['page'][0]
-                    except: page = '0'
+                    except: page = '1'
                     try: sort = self.params['sort'][0]
                     except: sort = '0'
                     spr = ["", "", "", "", "", ""]
-                    playlist = SearchN(category, sort, text, spr, page)
+                    playlist = get_rutor_playlist(category, sort, text, spr, page)
                     self.send_playlist(connection, playlist)
 
                 if connection.splittedpath[2] == 'list':
@@ -119,5 +119,33 @@ class Rutor(AceProxyPlugin):
                     connection.wfile.write(exported)
 
 
+def get_rutor_playlist(category, sort, text, spr, parent_page):
+
+    items_per_page = config.items_per_page
+    items = []
+    page = 0
+
+    while len(items) < items_per_page * int(parent_page):
+        rutor_list = SearchN(category, sort, text, spr, str(page), min_size=config.min_size, max_size=config.max_size, min_peers=config.min_peers, max_peers=config.max_peers)
+        page += 1
+        items += rutor_list
+        print "len(items)=%s" % len(items)
+
+    print "(items_per_page * int(parent_page) - items_per_page)=%s" % (items_per_page * int(parent_page) - items_per_page)
+    print "items_per_page * int(parent_page)=%s" % (items_per_page * int(parent_page))
+    playlist = PlaylistGenerator()
+    for d in items[(items_per_page * int(parent_page) - items_per_page):items_per_page * int(parent_page)]:
+        playlist.addItem(d)
+
+    Title = u"[НАЙТИ ЕЩЕ]"
+    itemdict = {'title': Title,
+                'url': '/rutor/category/%s/?page=%s' % (category, int(page) + 1),
+                'description_title': Title,
+                'description': '',
+                'type': 'channel'
+                }
+    playlist.addItem(itemdict)
+
+    return playlist
 
 
