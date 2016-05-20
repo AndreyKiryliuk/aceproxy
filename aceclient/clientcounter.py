@@ -16,12 +16,12 @@ class ClientCounter(object):
         self.idleace = None
         self.total = 0
         gevent.spawn(self.checkIdle)
-    
+
     def count(self, cid):
         with self.lock:
             clients = self.clients.get(cid)
             return len(clients) if clients else 0
-    
+
     def getClients(self, cid):
         with self.lock:
             return self.clients.get(cid)
@@ -29,13 +29,16 @@ class ClientCounter(object):
     def add(self, cid, client):
         with self.lock:
             clients = self.clients.get(cid)
-            
+
+            logging.error('%s: add' % cid)
+            logging.error('%s: clients=%s' % (cid, clients))
             if clients:
                 client.ace = clients[0].ace
                 with client.ace._lock:
                     client.queue.extend(client.ace._streamReaderQueue)
                 clients.append(client)
             else:
+                logging.error('%s: self.idleace=%s' % (cid, self.idleace))
                 if self.idleace:
                     client.ace = self.idleace
                     self.idleace = None
@@ -45,23 +48,25 @@ class ClientCounter(object):
                     except Exception as e:
                         logging.error('Failed to create AceClient: ' + repr(e))
                         raise e
-                
                 clients = [client]
                 self.clients[cid] = clients
-                    
+
             self.total += 1
-            return len(clients)
+            logging.error('%s: end add %s' % (cid, len(clients)))
+            logging.error('%s: end add %s' % (cid, client))
+            # return len(clients)
+            return client
 
     def delete(self, cid, client):
         with self.lock:
             if not self.clients.has_key(cid):
                 return 0
-            
+            logging.error('%s: delete' % cid)
             clients = self.clients[cid]
-            
+            logging.error('%s: clients=%s' % (cid, clients))
             if client not in clients:
                 return len(clients)
-            
+
             try:
                 if len(clients) > 1:
                     clients.remove(client)
@@ -69,7 +74,8 @@ class ClientCounter(object):
                 else:
                     del self.clients[cid]
                     clients[0].ace.closeStreamReader()
-                    
+
+                    logging.error('%s: self.idleace=%s' % (cid, self.idleace))
                     if self.idleace:
                         client.ace.destroy()
                     else:
@@ -79,24 +85,24 @@ class ClientCounter(object):
                             self.idleace.reset()
                         except:
                             client.ace.destroy()
-                    
+
                     return 0
             finally:
                 self.total -= 1
 
     def deleteAll(self, cid):
         clients = None
-        
+
         try:
             with self.lock:
                 if not self.clients.has_key(cid):
                     return
-                
+
                 clients = self.clients[cid]
                 del self.clients[cid]
                 self.total -= len(clients)
                 clients[0].ace.closeStreamReader()
-    
+
                 if self.idleace:
                     clients[0].ace.destroy()
                 else:
@@ -131,7 +137,7 @@ class ClientCounter(object):
                 seekback=AceConfig.videoseekback)
         logger.debug("AceClient inited")
         return ace
-    
+
     def checkIdle(self):
         while(True):
             gevent.sleep(60.0)
@@ -140,4 +146,4 @@ class ClientCounter(object):
                 if ace and (ace._idleSince + 60.0 <= time.time()):
                     self.idleace = None
                     ace.destroy()
-        
+

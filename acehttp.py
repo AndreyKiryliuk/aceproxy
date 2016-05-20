@@ -212,6 +212,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                 logger.error(traceback.format_exc())
                 self.dieWithError()
             finally:
+                logger.error('end plugin handlers')
                 self.closeConnection()
                 return
         self.handleRequest(headers_only)
@@ -282,9 +283,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.headerssent = True
 
         try:
-            self.hanggreenlet = gevent.spawn(self.hangDetector)
-            logger.debug("hangDetector spawned")
-            gevent.sleep()
+            # self.hanggreenlet = gevent.spawn(self.hangDetector)
+            # logger.debug("hangDetector spawned")
+            # gevent.sleep()
 
             # Initializing AceClient
             if shouldStart:

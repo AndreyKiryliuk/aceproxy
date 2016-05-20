@@ -317,7 +317,8 @@ def SearchN(category, sort, text, filtr, page='0', min_size=0, max_size=0, min_p
 
                     Title = "[%s]" % unicode(str(sids.strip() + " | " + size.strip() + " | " + tTitle[5].strip()), 'utf-8')
                     itemdict = {'title': Title,
-                                'url': '/rutor/list/%s/' % urllib.quote_plus(httpSiteUrl + row_url),
+                                # 'url': '/rutor/list/%s/' % urllib.quote_plus(httpSiteUrl + row_url),
+                                'url': '/rutor/list/%s/' % urllib.quote_plus(row_url),
                                 'description_title': Title,
                                 'description': '',
                                 'type': 'channel'
