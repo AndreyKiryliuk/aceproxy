@@ -150,7 +150,8 @@ class Playtorrent(AceProxyPlugin):
                 logger.debug("getting url done")
                 logger.debug("%s: connection=%s" % (cid, self.connection))
                 # Rewriting host for remote Ace Stream Engine
-                self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', self.AceConfig.acehost)
+                # self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', self.AceConfig.acehost)
+                self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', '176.124.137.239')
                 # self.url = self.url.replace('127.0.0.1', '192.168.0.214')
                 logger.debug('redirect to: %s' % self.connection.url)
                 self.connection.send_response(302)
