@@ -22,7 +22,8 @@ import urlparse
 import vlcclient
 from modules.PluginInterface import AceProxyPlugin
 from httpclient.httpclient import Client
-
+from datetime import datetime
+import time
 
 class Playtorrent(AceProxyPlugin):
     handlers = ('playtorrent', 'playpid')
@@ -38,9 +39,9 @@ class Playtorrent(AceProxyPlugin):
         query = urlparse.urlparse(connection.path).query
         self.params = urlparse.parse_qs(query)
 
-        self.logger.debug('connection.reqtype=%s' % connection.reqtype)
-        self.logger.debug(len(connection.splittedpath))
-        self.logger.debug('connection.splittedpath=%s' % connection.splittedpath)
+        # self.logger.debug('connection.reqtype=%s' % connection.reqtype)
+        # self.logger.debug(len(connection.splittedpath))
+        # self.logger.debug('connection.splittedpath=%s' % connection.splittedpath)
 
         if connection.reqtype == 'playtorrent':
             self.handlePlay(headers_only)
@@ -48,6 +49,7 @@ class Playtorrent(AceProxyPlugin):
 
     def handlePlay(self, headers_only, channelName=None, channelIcon=None, fmt=None):
         logger = logging.getLogger('handlePlay')
+        logger.debug("connection=%s" % (self.connection))
         self.connection.requrl = urlparse.urlparse(self.connection.path)
         self.connection.reqparams = urlparse.parse_qs(self.connection.requrl.query)
         self.connection.path = self.connection.requrl.path[:-1] if self.connection.requrl.path.endswith('/') else self.connection.requrl.path
@@ -98,11 +100,17 @@ class Playtorrent(AceProxyPlugin):
         self.connection.path_unquoted = urllib2.unquote(self.connection.splittedpath[2])
         contentid = self.connection.getCid(self.connection.reqtype, self.connection.path_unquoted)
         cid = contentid if contentid else self.connection.path_unquoted
+        cid = str(datetime.now()) + ' ' + cid
         logger.debug("CID: " + cid)
         self.connection.client = Client(cid, self.connection, channelName, channelIcon)
+        logger.debug("%s: client=%s" % (cid, self.connection.client))
         self.connection.vlcid = urllib2.quote(cid, '')
-        self.AceStuff.clientcounter.add(cid, self.connection.client)
+        logger.debug("%s: client=%s" % (cid, self.connection.client))
+        self.connection.client = self.AceStuff.clientcounter.add(cid, self.connection.client)
+        logger.debug("%s: client=%s" % (cid, self.connection.client))
+        logger.debug("%s: connection=%s" % (cid, self.connection))
         shouldStart = True
+
 
         # Send fake headers if this User-Agent is in fakeheaderuas tuple
         if fakeua:
@@ -113,7 +121,15 @@ class Playtorrent(AceProxyPlugin):
             self.connection.end_headers()
             # Do not send real headers at all
             self.connection.headerssent = True
-
+        logger.debug("%s: client=%s" % (cid, self.connection.client))
+        logger.debug("%s: connection=%s" % (cid, self.connection))
+#         while not self.connection:
+#             logger.debug("%s wait self.connection.ace" % cid)
+#             time.sleep(1)
+#
+#         while not self.connection.client.ace:
+#             logger.debug("%s wait self.connection.client.ace" % cid)
+#             time.sleep(1)
         try:
             # Initializing AceClient
             if shouldStart:
@@ -128,11 +144,20 @@ class Playtorrent(AceProxyPlugin):
                     paramsdict['url'] = self.connection.path_unquoted
                     self.connection.client.ace.START('torrent', paramsdict)
                 logger.debug("START done")
+                logger.debug("%s: connection=%s" % (cid, self.connection))
                 # Getting URL
                 self.connection.url = self.connection.client.ace.getUrl(self.AceConfig.videotimeout)
                 logger.debug("getting url done")
+                logger.debug("%s: connection=%s" % (cid, self.connection))
                 # Rewriting host for remote Ace Stream Engine
                 self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', self.AceConfig.acehost)
+                # self.url = self.url.replace('127.0.0.1', '192.168.0.214')
+                logger.debug('redirect to: %s' % self.connection.url)
+                self.connection.send_response(302)
+                self.connection.send_header("Location", self.connection.url)
+                self.connection.end_headers()
+                time.sleep(200)
+                return
 
             self.connection.errorhappened = False
 
@@ -271,6 +296,7 @@ class Playtorrent(AceProxyPlugin):
             self.connection.errorhappened = True
             self.connection.dieWithError()
         finally:
+            pass
 #             if self.AceConfig.videodestroydelay and not self.connection.errorhappened and self.AceStuff.clientcounter.count(cid) == 1:
 #                 # If no error happened and we are the only client
 #                 try:
