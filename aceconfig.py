@@ -21,6 +21,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     # Ace Stream API key
     # You probably shouldn't touch this
     acekey = 'n51LvQoTlJzNGaFxseRK-uvnvX-sD4Vm5Axwmc4UcoD-jruxmKsuJaH0eVgE'
+    #acekey = 'kjYX790gTytRaXV04IvC-xZH3A18sj5b1Tf3I-J5XVS1xsj-j0797KwxxLpBl26HPvWMm'
     # Ace Stream Engine host
     # Change this if you use remote Ace Stream Engine
     # Remember that by default Ace Stream Engine listens only
@@ -170,9 +171,9 @@ class AceConfig(acedefconfig.AceDefConfig):
     videoseekback = 0
     # Delay before closing Ace Stream connection when client disconnects
     # In seconds.
-    videodestroydelay = 0
+    videodestroydelay = 10
     # Pre-buffering timeout. In seconds.
-    videotimeout = 140
+    videotimeout = 40
     #
     # Some video players (mostly STBs and Smart TVs) can generate dummy requests
     # to detect MIME-type or something before playing which Ace Stream handles badly.

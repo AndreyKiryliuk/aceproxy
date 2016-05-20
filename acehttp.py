@@ -118,9 +118,10 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     logger.debug("Client is not connected, terminating")
                     break
 
-                data = self.video.read(1024)
-                if data and self.connected:
+                data = self.video.read(8192)
+                if data:
                     self.wfile.write(data)
+                    #logger.debug('w')
                 else:
                     logger.warning("Video connection closed")
                     break
@@ -281,9 +282,9 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             self.headerssent = True
 
         try:
-            self.hanggreenlet = gevent.spawn(self.hangDetector)
-            logger.debug("hangDetector spawned")
-            gevent.sleep()
+            #self.hanggreenlet = gevent.spawn(self.hangDetector)
+            #logger.debug("hangDetector spawned")
+            #gevent.sleep()
 
             # Initializing AceClient
             if shouldStart:
