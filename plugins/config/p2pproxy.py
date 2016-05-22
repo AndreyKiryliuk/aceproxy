@@ -17,10 +17,10 @@ What is this plugin for?
 __author__ = 'miltador'
 
 # Insert your email on torrent-tv.ru here
-email = 'ex_trin@list.ru'
+email = 'change@me'
 
 # Insert your torrent-tv account password
-password = '6841983t'
+password = 'pasword'
 
 # Session timeout
 sessiontimeout = 1800
