@@ -105,7 +105,7 @@ class Rutor(AceProxyPlugin):
                     else:
                         Title = "[Not found files for play]"
                         itemdict = {'title': Title,
-                                    'url': '/rutor/list/%s/' % torrent_url,
+                                    'url': '/rutor/list/%s/' % (config.site_url + torrent_url),
                                     'description_title': Title,
                                     'description': '',
                                     'type': 'channel',
