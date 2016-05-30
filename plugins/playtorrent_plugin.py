@@ -25,6 +25,8 @@ from modules.PluginInterface import AceProxyPlugin
 from httpclient.httpclient import Client
 # from datetime import datetime
 import time
+import uuid
+import Cookie
 
 VIDEO_DESTROY_DELAY = 3
 
@@ -38,7 +40,7 @@ class Playtorrent(AceProxyPlugin):
         self.logger = logging.getLogger('playtorrent')
 
     def handle(self, connection, headers_only=False):
-        self.connection = connection
+        #self.connection = connection
         query = urlparse.urlparse(connection.path).query
         self.params = urlparse.parse_qs(query)
 
@@ -47,81 +49,94 @@ class Playtorrent(AceProxyPlugin):
         # self.logger.debug('connection.splittedpath=%s' % connection.splittedpath)
 
         if connection.reqtype == 'playtorrent':
-            self.handlePlay(headers_only)
+            self.handlePlay(connection, headers_only)
 
 
-    def handlePlay(self, headers_only, channelName=None, channelIcon=None, fmt=None):
+    def handlePlay(self, connection, headers_only, channelName=None, channelIcon=None, fmt=None):
         logger = logging.getLogger('handlePlay')
-        logger.debug("connection=%s" % (self.connection))
-        self.connection.requrl = urlparse.urlparse(self.connection.path)
-        self.connection.reqparams = urlparse.parse_qs(self.connection.requrl.query)
-        self.connection.path = self.connection.requrl.path[:-1] if self.connection.requrl.path.endswith('/') else self.connection.requrl.path
-        for key in self.connection.headers.dict:
-            logger.debug("%s: %s" % (key, self.connection.headers.dict[key]))
+        logger.debug("connection=%s" % (connection))
+        connection.requrl = urlparse.urlparse(connection.path)
+        connection.reqparams = urlparse.parse_qs(connection.requrl.query)
+        connection.path = connection.requrl.path[:-1] if connection.requrl.path.endswith('/') else connection.requrl.path
+        for key in connection.headers.dict:
+            logger.debug("%s: %s" % (key, connection.headers.dict[key]))
         # Check if third parameter exists
         # …/pid/blablablablabla/video.mpg
         #                      |_________|
         # And if it ends with regular video extension
         try:
-            if not self.connection.path.endswith(('.3gp', '.avi', '.flv', '.mkv', '.mov', '.mp4', '.mpeg', '.mpg', '.ogv', '.ts')):
+            if not connection.path.endswith(('.3gp', '.avi', '.flv', '.mkv', '.mov', '.mp4', '.mpeg', '.mpg', '.ogv', '.ts')):
                 logger.error("Request seems like valid but no valid video extension was provided")
-                self.connection.dieWithError(400)
+                connection.dieWithError(400)
                 return
         except IndexError:
             logger.error("Index error")
-            self.connection.dieWithError(400)  # 400 Bad Request
+            connection.dieWithError(400)  # 400 Bad Request
             return
 
         # Limit concurrent connections
         if 0 < self.AceConfig.maxconns <= self.AceStuff.clientcounter.total:
             logger.debug("Maximum connections reached, can't serve this")
-            self.connection.dieWithError(503)  # 503 Service Unavailable
+            connection.dieWithError(503)  # 503 Service Unavailable
             return
 
         # Pretend to work fine with Fake UAs or HEAD request.
-        useragent = self.connection.headers.get('User-Agent')
+        useragent = connection.headers.get('User-Agent')
         fakeua = useragent and useragent in self.AceConfig.fakeuas
         if headers_only or fakeua:
             if fakeua:
-                logger.debug("Got fake UA: " + self.connection.headers.get('User-Agent'))
+                logger.debug("Got fake UA: " + connection.headers.get('User-Agent'))
             # Return 200 and exit
-            self.connection.send_response(200)
-            self.connection.send_header("Content-Type", "video/mpeg2")
-            self.connection.end_headers()
-            self.connection.closeConnection()
+            connection.send_response(200)
+            connection.send_header("Content-Type", "video/mpeg2")
+            connection.end_headers()
+            connection.closeConnection()
             return
 
         # Make list with parameters
-        self.connection.params = list()
+        connection.params = list()
         for i in xrange(3, 8):
             try:
-                self.connection.params.append(int(self.connection.splittedpath[i]))
+                connection.params.append(int(connection.splittedpath[i]))
             except (IndexError, ValueError):
-                self.connection.params.append('0')
+                connection.params.append('0')
 
-        self.connection.url = None
-        self.connection.path_unquoted = urllib2.unquote(self.connection.splittedpath[2])
-        contentid = self.connection.getCid(self.connection.reqtype, self.connection.path_unquoted)
-        cid = contentid if contentid else self.connection.path_unquoted
+        connection.url = None
+        connection.path_unquoted = urllib2.unquote(connection.splittedpath[2])
+        contentid = connection.getCid(connection.reqtype, connection.path_unquoted)
+        cid = contentid if contentid else connection.path_unquoted
         # cid = str(datetime.now()) + ' ' + cid
+        uid = ''
+        if "Cookie" in connection.headers:
+            c = Cookie.SimpleCookie(connection.headers["Cookie"])
+            print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+            print c['uid'].value
+            print '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+            if c['uid'].value:
+                uid = c['uid'].value
+        if not uid:
+            uid = uuid.uuid1().hex
+        cid = cid + ' ' + uid
         logger.debug("CID: " + cid)
-        self.connection.client = Client(cid, self.connection, channelName, channelIcon)
-        logger.debug("%s: client=%s" % (cid, self.connection.client))
-        self.connection.vlcid = urllib2.quote(cid, '')
-        # self.connection.client = self.AceStuff.clientcounter.add(cid, self.connection.client)
+        
+        
+        connection.client = Client(cid, connection, channelName, channelIcon)
+        logger.debug("%s: client=%s" % (cid, connection.client))
+        connection.vlcid = urllib2.quote(cid, '')
+        # connection.client = self.AceStuff.clientcounter.add(cid, connection.client)
 
         shouldStart = self.AceStuff.clientcounter.check_cid(cid)
         logger.debug("%s: shouldStart=%s" % (cid, shouldStart))
-        while self.AceStuff.clientcounter.check_pt(cid, self.connection.client):
+        while self.AceStuff.clientcounter.check_pt(cid, connection.client):
             logger.debug("%s: sleep1" % (cid,))
             time.sleep(1)
 
-        self.AceStuff.clientcounter.add_pt(cid, self.connection.client)
+        self.AceStuff.clientcounter.add_pt(cid, connection.client)
 
 
-        # shouldStart = self.AceStuff.clientcounter.add_pt(cid, self.connection.client)
-        logger.debug("%s: client=%s" % (cid, self.connection.client))
-        logger.debug("%s: connection=%s" % (cid, self.connection))
+        # shouldStart = self.AceStuff.clientcounter.add_pt(cid, connection.client)
+        logger.debug("%s: client=%s" % (cid, connection.client))
+        logger.debug("%s: connection=%s" % (cid, connection))
 
 
 
@@ -129,130 +144,131 @@ class Playtorrent(AceProxyPlugin):
         if fakeua:
             logger.debug(
                 "Sending fake headers for " + useragent)
-            self.connection.send_response(200)
-            self.connection.send_header("Content-Type", "video/mpeg3")
-            self.connection.end_headers()
+            connection.send_response(200)
+            connection.send_header("Content-Type", "video/mpeg3")
+            connection.end_headers()
             # Do not send real headers at all
-            self.connection.headerssent = True
-        logger.debug("%s: client=%s" % (cid, self.connection.client))
-        logger.debug("%s: connection=%s" % (cid, self.connection))
-#         while not self.connection:
-#             logger.debug("%s wait self.connection.ace" % cid)
+            connection.headerssent = True
+        logger.debug("%s: client=%s" % (cid, connection.client))
+        logger.debug("%s: connection=%s" % (cid, connection))
+#         while not connection:
+#             logger.debug("%s wait connection.ace" % cid)
 #             time.sleep(1)
 #
-#         while not self.connection.client.ace:
-#             logger.debug("%s wait self.connection.client.ace" % cid)
+#         while not connection.client.ace:
+#             logger.debug("%s wait connection.client.ace" % cid)
 #             time.sleep(1)
         try:
-            self.connection.errorhappened = False
+            connection.errorhappened = False
             # Initializing AceClient
             if shouldStart:
                 if contentid:
-                    self.connection.client.ace.START('PID', {'content_id': contentid})
-                elif self.connection.reqtype == 'playpid':
-                    self.connection.client.ace.START(
-                        self.connection.reqtype, {'content_id': self.connection.path_unquoted, 'file_indexes': self.connection.params[0]})
-                elif self.connection.reqtype == 'playtorrent':
+                    connection.client.ace.START('PID', {'content_id': contentid})
+                elif connection.reqtype == 'playpid':
+                    connection.client.ace.START(
+                        connection.reqtype, {'content_id': connection.path_unquoted, 'file_indexes': connection.params[0]})
+                elif connection.reqtype == 'playtorrent':
                     paramsdict = dict(
-                        zip(aceclient.acemessages.AceConst.START_TORRENT, self.connection.params))
-                    paramsdict['url'] = self.connection.path_unquoted
-                    self.connection.client.ace.START('torrent', paramsdict)
+                        zip(aceclient.acemessages.AceConst.START_TORRENT, connection.params))
+                    paramsdict['url'] = connection.path_unquoted
+                    connection.client.ace.START('torrent', paramsdict)
                 logger.debug("START done")
-                logger.debug("%s: connection=%s" % (cid, self.connection))
+                logger.debug("%s: connection=%s" % (cid, connection))
                 # Getting URL
-                self.connection.url = self.connection.client.ace.getUrl(self.AceConfig.videotimeout)
+                connection.url = connection.client.ace.getUrl(self.AceConfig.videotimeout)
                 logger.debug("getting url done")
-                logger.debug("%s: connection=%s" % (cid, self.connection))
+                logger.debug("%s: connection=%s" % (cid, connection))
                 # Rewriting host for remote Ace Stream Engine
-                self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', self.AceConfig.acehost)
-                self.connection.client.ace.req_headers = {}
-                # self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', '176.124.137.239')
-                # self.url = self.url.replace('127.0.0.1', '192.168.0.214')
-#                 logger.debug('redirect to: %s' % self.connection.url)
-#                 self.connection.send_response(302)
-#                 self.connection.send_header("Location", self.connection.url)
-#                 self.connection.end_headers()
+                connection.url = connection.client.ace.url = connection.url.replace('127.0.0.1', self.AceConfig.acehost)
+                connection.client.ace.req_headers = {}
+                
+#                 #connection.url = connection.client.ace.url = connection.url.replace('127.0.0.1', '176.124.137.239')
+#                 #self.url = self.url.replace('127.0.0.1', '192.168.0.214')
+#                 logger.debug('redirect to: %s' % connection.url)
+#                 connection.send_response(302)
+#                 connection.send_header("Location", connection.url)
+#                 connection.end_headers()
 #                 time.sleep(200)
 #                 return
 
-                logger.debug("Got url " + self.connection.url)
+                logger.debug("Got url " + connection.url)
                 # If using VLC, add this url to VLC
                 if self.AceConfig.vlcuse:
                     # Force ffmpeg demuxing if set in config
                     if self.AceConfig.vlcforceffmpeg:
-                        self.connection.vlcprefix = 'http/ffmpeg://'
+                        connection.vlcprefix = 'http/ffmpeg://'
                     else:
-                        self.connection.vlcprefix = ''
+                        connection.vlcprefix = ''
 
-                    self.connection.client.ace.pause()
+                    connection.client.ace.pause()
                     # Sleeping videodelay
                     gevent.sleep(self.AceConfig.videodelay)
-                    self.connection.client.ace.play()
+                    connection.client.ace.play()
 
                     self.AceStuff.vlcclient.startBroadcast(
-                        self.connection.vlcid, self.connection.vlcprefix + self.connection.url, self.AceConfig.vlcmux, self.AceConfig.vlcpreaccess)
+                        connection.vlcid, connection.vlcprefix + connection.url, self.AceConfig.vlcmux, self.AceConfig.vlcpreaccess)
                     # Sleep a bit, because sometimes VLC doesn't open port in
                     # time
                     gevent.sleep(0.5)
             else:
-                logger.debug('self.connection.url: %s' % self.connection.url)
-                logger.debug('self.connection.client.ace.url: %s' % self.connection.client.ace.url)
-                self.connection.url = self.connection.client.ace.url
+                logger.debug('connection.url: %s' % connection.url)
+                logger.debug('connection.client.ace.url: %s' % connection.client.ace.url)
+                connection.url = connection.client.ace.url
 
-#             self.hanggreenlet = gevent.spawn(self.connection.hangDetector)
+#             self.hanggreenlet = gevent.spawn(connection.hangDetector)
 #             logger.debug("hangDetector spawned")
 #             gevent.sleep()
 
             # Building new VLC url
             if self.AceConfig.vlcuse:
-                self.connection.url = 'http://' + self.AceConfig.vlchost + \
-                    ':' + str(self.AceConfig.vlcoutport) + '/' + self.connection.vlcid
-                logger.debug("VLC url " + self.connection.url)
+                connection.url = 'http://' + self.AceConfig.vlchost + \
+                    ':' + str(self.AceConfig.vlcoutport) + '/' + connection.vlcid
+                logger.debug("VLC url " + connection.url)
 
                 # Sending client headers to videostream
-                self.connection.video = urllib2.Request(self.connection.url)
-                for key in self.connection.headers.dict:
-                    self.connection.video.add_header(key, self.connection.headers.dict[key])
+                connection.video = urllib2.Request(connection.url)
+                for key in connection.headers.dict:
+                    connection.video.add_header(key, connection.headers.dict[key])
 
-                self.connection.video = urllib2.urlopen(self.connection.video)
+                connection.video = urllib2.urlopen(connection.video)
 
                 # Sending videostream headers to client
-                if not self.connection.headerssent:
-                    self.connection.send_response(self.connection.video.getcode())
-                    if self.connection.video.info().dict.has_key('connection'):
-                        del self.connection.video.info().dict['connection']
-                    if self.connection.video.info().dict.has_key('server'):
-                        del self.connection.video.info().dict['server']
-                    if self.connection.video.info().dict.has_key('transfer-encoding'):
-                        del self.connection.video.info().dict['transfer-encoding']
-                    if self.connection.video.info().dict.has_key('keep-alive'):
-                        del self.connection.video.info().dict['keep-alive']
+                if not connection.headerssent:
+                    connection.send_response(connection.video.getcode())
+                    if connection.video.info().dict.has_key('connection'):
+                        del connection.video.info().dict['connection']
+                    if connection.video.info().dict.has_key('server'):
+                        del connection.video.info().dict['server']
+                    if connection.video.info().dict.has_key('transfer-encoding'):
+                        del connection.video.info().dict['transfer-encoding']
+                    if connection.video.info().dict.has_key('keep-alive'):
+                        del connection.video.info().dict['keep-alive']
 
-                    for key in self.connection.video.info().dict:
-                        self.connection.send_header(key, self.connection.video.info().dict[key])
+                    for key in connection.video.info().dict:
+                        connection.send_header(key, connection.video.info().dict[key])
                     # End headers. Next goes video data
-                    self.connection.end_headers()
+                    connection.end_headers()
                     logger.debug("Headers sent")
 
                 # Run proxyReadWrite
-                # self.connection.proxyReadWrite()
-                self.connection.client.handle(self.AceStuff, shouldStart, self.url, fmt, self.connection.headers)
+                # connection.proxyReadWrite()
+                connection.client.handle(self.AceStuff, shouldStart, self.url, fmt, connection.headers)
             else:
                 if not fmt:
-                    fmt = self.connection.reqparams.get('fmt')[0] if self.connection.reqparams.has_key('fmt') else None
+                    fmt = connection.reqparams.get('fmt')[0] if connection.reqparams.has_key('fmt') else None
 
-#                 self.connection.client.handle(self.AceStuff, shouldStart, self.connection.url, fmt, self.connection.headers)
+#                 connection.client.handle(self.AceStuff, shouldStart, connection.url, fmt, connection.headers)
 #                 time.sleep(200)
 
 
 
 
                 # Sending client headers to videostream
-                if self.connection.url:
-#                     self.url = self.url.replace('127.0.0.1', '192.168.0.214')
-#                     logger.debug('redirect to: %s' % self.url)
+                if connection.url:
+#                     #self.url = self.url.replace('127.0.0.1', '192.168.0.214')
+#                     logger.debug('redirect to: %s' % connection.url)
 #                     self.send_response(302)
-#                     self.send_header("Location", self.url)
+#                     self.send_header("Location", connection.url)
 #                     self.end_headers()
 #                     time.sleep(200)
 
@@ -263,10 +279,10 @@ class Playtorrent(AceProxyPlugin):
 #                    logger.debug("%s: %s" % (key, self.headers.dict[key]))
 
 #                    self.video = urllib2.urlopen(self.video)
-                    request = urllib2.Request(self.connection.url, headers=self.connection.headers)
-                    self.connection.video = urllib2.urlopen(request, timeout=120)
+                    request = urllib2.Request(connection.url, headers=connection.headers)
+                    connection.video = urllib2.urlopen(request, timeout=120)
 
-                    self.connection.send_response(self.connection.video.getcode())
+                    connection.send_response(connection.video.getcode())
 
                     FORWARD_HEADERS = ['Content-Range',
                                        'Connection',
@@ -278,35 +294,36 @@ class Playtorrent(AceProxyPlugin):
                                        ]
                     SKIP_HEADERS = ['Server', 'Date']
 
-                    for k in self.connection.video.info().headers:
+                    for k in connection.video.info().headers:
                         if k.split(':')[0] not in (FORWARD_HEADERS + SKIP_HEADERS):
                             logger.debug('NEW HEADERS: %s' % k.split(':')[0])
                     for h in FORWARD_HEADERS:
-                        if self.connection.video.info().getheader(h):
-                            self.connection.send_header(h, self.connection.video.info().getheader(h))
-                            logger.debug('key=%s value=%s' % (h, self.connection.video.info().getheader(h)))
-
-                    self.connection.end_headers()
+                        if connection.video.info().getheader(h):
+                            connection.send_header(h, connection.video.info().getheader(h))
+                            logger.debug('key=%s value=%s' % (h, connection.video.info().getheader(h)))
+                    
+                    connection.send_header('Set-Cookie', 'uid=%s' % uid)
+                    connection.end_headers()
                     logger.debug("Headers sent")
 
                     # Run proxyReadWrite
-                    self.connection.proxyReadWrite()
+                    connection.proxyReadWrite()
                 else:
-                    self.connection.send_response(206)
-                    self.connection.send_header('Content-Range', 'bytes 5016536819-5016606675/5016606676')
-                    self.connection.send_header('Connection', 'Keep-Alive')
-                    self.connection.send_header('Keep-Alive', 'timeout=15, max=100')
-                    self.connection.send_header('Content-Type', 'video/x-matroska')
-                    self.connection.send_header('Accept-Ranges', 'bytes')
-                    self.connection.send_header('X-Content-Duration', '7882.00834298')
-                    self.connection.send_header('Content-Length', '69857')
-                    self.connection.end_headers()
+                    connection.send_response(206)
+                    connection.send_header('Content-Range', 'bytes 5016536819-5016606675/5016606676')
+                    connection.send_header('Connection', 'Keep-Alive')
+                    connection.send_header('Keep-Alive', 'timeout=15, max=100')
+                    connection.send_header('Content-Type', 'video/x-matroska')
+                    connection.send_header('Accept-Ranges', 'bytes')
+                    connection.send_header('X-Content-Duration', '7882.00834298')
+                    connection.send_header('Content-Length', '69857')
+                    connection.end_headers()
 
 
         except (aceclient.AceException, vlcclient.VlcException, urllib2.URLError) as e:
             logger.error("Exception: " + repr(e))
-            self.connection.errorhappened = True
-            self.connection.dieWithError()
+            connection.errorhappened = True
+            connection.dieWithError()
         except gevent.GreenletExit:
             # hangDetector told us about client disconnection
             logger.debug('greenletExit')
@@ -314,11 +331,11 @@ class Playtorrent(AceProxyPlugin):
         except Exception:
             # Unknown exception
             logger.error(traceback.format_exc())
-            self.connection.errorhappened = True
-            self.connection.dieWithError()
+            connection.errorhappened = True
+            connection.dieWithError()
         finally:
             pass
-            if self.connection.errorhappened and self.AceStuff.clientcounter.count_pt(cid) == 0:
+            if connection.errorhappened and self.AceStuff.clientcounter.count_pt(cid) == 0:
                 # If no error happened and we are the only client
                 try:
                     logger.debug("Sleeping for " + str(VIDEO_DESTROY_DELAY) + " seconds")
@@ -327,15 +344,15 @@ class Playtorrent(AceProxyPlugin):
                     pass
 
             try:
-                logger.debug("%s: client=%s" % (cid, self.connection.client))
-                remaining = self.AceStuff.clientcounter.delete_pt(cid, self.connection.client)
-                if self.connection.client:
-                    self.connection.client.destroy()
-                self.connection.ace = None
-                self.connection.client = None
+                logger.debug("%s: client=%s" % (cid, connection.client))
+                remaining = self.AceStuff.clientcounter.delete_pt(cid, connection.client)
+                if connection.client:
+                    connection.client.destroy()
+                connection.ace = None
+                connection.client = None
                 if self.AceConfig.vlcuse and remaining == 0:
                     try:
-                        self.AceStuff.vlcclient.stopBroadcast(self.connection.vlcid)
+                        self.AceStuff.vlcclient.stopBroadcast(connection.vlcid)
                     except:
                         pass
                 logger.debug("END REQUEST")

@@ -15,6 +15,7 @@ class ClientCounter(object):
         self.clients = dict()
         self.idleace = None
         self.total = 0
+        self.total_pt = 0
         self.pt_clients = dict()
         self.pt_ace = dict()
         gevent.spawn(self.checkIdle)
@@ -22,6 +23,11 @@ class ClientCounter(object):
     def count(self, cid):
         with self.lock:
             clients = self.clients.get(cid)
+            return len(clients) if clients else 0
+    
+    def count_pt(self, cid):
+        with self.lock:
+            clients = self.pt_clients.get(cid)
             return len(clients) if clients else 0
 
     def getClients(self, cid):

@@ -123,6 +123,7 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
                     self.wfile.write(data)
                 else:
                     logger.warning("Video connection closed")
+                    #time.sleep(60)
                     break
         except SocketException:
             # Video connection dropped
@@ -130,8 +131,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         finally:
             self.video.close()
             logger.warning("self.client: %s" % (self.client))
-            AceStuff.clientcounter.delete_pt(self.client.cid, self.client)
             if self.client:
+                AceStuff.clientcounter.delete_pt(self.client.cid, self.client)
                 self.client.destroy()
 
     def hangDetector(self):
