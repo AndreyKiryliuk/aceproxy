@@ -63,7 +63,7 @@ class AceClient(object):
         self._seekback = 0
         # Did we get START command again? For seekback.
         self._started_again = False
-        
+
         self._idleSince = time.time()
         self._lock = threading.Condition(threading.Lock())
         self._streamReaderConnection = None
@@ -217,7 +217,7 @@ class AceClient(object):
         logger = logging.getLogger("StreamReader")
         self._streamReaderState = 1
         logger.debug("Opening video stream: %s" % url)
-        
+
         try:
             connection = self._streamReaderConnection = urllib2.urlopen(url)
 
@@ -228,15 +228,15 @@ class AceClient(object):
             if connection.getcode() != 200:
                 logger.error("Failed to open video stream %s" % connection)
                 return
-                
+
             with self._lock:
                 self._streamReaderState = 2
                 self._lock.notifyAll()
-            
+
             while True:
                 data = None
                 clients = counter.getClients(cid)
-                
+
                 try:
                     data = connection.read(AceConfig.readchunksize)
                 except:
@@ -247,7 +247,7 @@ class AceClient(object):
                         if len(self._streamReaderQueue) == AceConfig.readcachesize:
                             self._streamReaderQueue.popleft()
                         self._streamReaderQueue.append(data)
-                    
+
                     for c in clients:
                         try:
                             c.addChunk(data, 5.0)
@@ -274,11 +274,11 @@ class AceClient(object):
                 self._streamReaderState = 3
                 self._lock.notifyAll()
             counter.deleteAll(cid)
-    
+
     def closeStreamReader(self):
         logger = logging.getLogger("StreamReader")
         c = self._streamReaderConnection
-        
+
         if c:
             self._streamReaderConnection = None
             c.close()
@@ -323,7 +323,7 @@ class AceClient(object):
                     # Parse HELLO
                     if 'version_code=' in self._recvbuffer:
                         v = self._recvbuffer.find('version_code=')
-                        self._engine_version_code = int(self._recvbuffer[v+13:v+20])
+                        self._engine_version_code = int(self._recvbuffer[v + 13:v + 20])
 
                     if 'key=' in self._recvbuffer:
                         self._request_key_begin = self._recvbuffer.find('key=')
@@ -439,7 +439,118 @@ class AceClient(object):
                     logger.debug("RESUME event")
                     gevent.sleep(self._pausedelay)
                     self._resumeevent.set()
-                
+
                 elif self._recvbuffer.startswith('##') or len(self._recvbuffer) == 0:
                     self._cidresult.set(self._recvbuffer)
                     logger.debug("CID: %s" % self._recvbuffer)
+
+
+    def sendHeadersPT(self, client, code, headers):
+        client.handler.send_response(code)
+        for key, value in headers.items():
+            client.handler.send_header(key, value)
+        client.handler.end_headers()
+
+    def openStreamReaderPT(self, url, req_headers):
+        logger = logging.getLogger("openStreamReaderPT")
+        logger.debug("Opening video stream: %s" % url)
+        logger.debug("headers: %s" % req_headers)
+
+        if url.endswith('.m3u8'):
+            logger.debug("Can't stream HLS in non VLC mode: %s" % url)
+            return None, None, None
+
+        request = urllib2.Request(url, headers=req_headers)
+        connection = self._streamReaderConnection = urllib2.urlopen(request, timeout=120)
+        code = connection.getcode()
+
+        if code not in (200, 206):
+            logger.error("Failed to open video stream %s" % connection)
+            return None, None, None
+
+        FORWARD_HEADERS = ['Content-Range',
+                           'Connection',
+                           'Keep-Alive',
+                           'Content-Type',
+                           'Accept-Ranges',
+                           'X-Content-Duration',
+                           'Content-Length',
+                           ]
+        SKIP_HEADERS = ['Server', 'Date']
+        response_headers = {}
+        for k in connection.info().headers:
+            if k.split(':')[0] not in (FORWARD_HEADERS + SKIP_HEADERS):
+                logger.debug('NEW HEADERS: %s' % k.split(':')[0])
+        for h in FORWARD_HEADERS:
+            if connection.info().getheader(h):
+                response_headers[h] = connection.info().getheader(h)
+                # self.connection.send_header(h, connection.info().getheader(h))
+                logger.debug('key=%s value=%s' % (h, connection.info().getheader(h)))
+
+        with self._lock:
+            self._streamReaderState = 2
+            self._lock.notifyAll()
+
+        return connection, code, response_headers
+
+    def startStreamReaderPT(self, url, cid, counter, req_headers=None):
+        logger = logging.getLogger("StreamReaderPT")
+        self._streamReaderState = 1
+        # current_req_headers = req_headers
+
+        try:
+            while True:
+                data = None
+                clients = counter.getClientsPT(cid)
+
+                if not req_headers == self.req_headers:
+                    self.req_headers = req_headers
+                    connection, code, resp_headers = self.openStreamReaderPT(url, req_headers)
+                    if not connection:
+                        return
+
+                    for c in clients:
+                        try:
+                            c.headers_sent
+                        except:
+                            self.sendHeadersPT(c, code, resp_headers)
+                            c.headers_sent = True
+
+                # logger.debug("i")
+                try:
+                    data = connection.read(AceConfig.readchunksize)
+                except:
+                    break;
+                # logger.debug("d: %s c:%s" % (data, clients))
+                if data and clients:
+                    with self._lock:
+                        if len(self._streamReaderQueue) == AceConfig.readcachesize:
+                            self._streamReaderQueue.popleft()
+                        self._streamReaderQueue.append(data)
+
+                    for c in clients:
+                        try:
+                            c.addChunk(data, 5.0)
+                        except Queue.Full:
+                            if len(clients) > 1:
+                                logger.debug("Disconnecting client: %s" % str(c))
+                                c.destroy()
+                elif not clients:
+                    logger.debug("All clients disconnected - closing video stream")
+                    break
+                else:
+                    logger.warning("No data received")
+                    break
+        except urllib2.URLError:
+            logger.error("Failed to open video stream")
+            logger.error(traceback.format_exc())
+        except:
+            logger.error(traceback.format_exc())
+            if counter.getClientsPT(cid):
+                logger.error("Failed to read video stream")
+        finally:
+            self.closeStreamReader()
+            with self._lock:
+                self._streamReaderState = 3
+                self._lock.notifyAll()
+            counter.deleteAll(cid)

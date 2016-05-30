@@ -9,6 +9,7 @@ from aceconfig import AceConfig
 import psutil
 from subprocess import PIPE
 import Queue
+import gevent
 
 
 class Client:
@@ -22,25 +23,29 @@ class Client:
         self.lock = threading.Condition(threading.Lock())
         self.queue = deque()
 
-    def handle(self, shouldStart, url, fmt=None, req_headers=None):
+
+    def handle(self, AceStuff, shouldStart, url, fmt=None, req_headers=None):
         logger = logging.getLogger("ClientHandler")
 
         logger.debug('tut 461')
 
+        self.AceStuff = AceStuff
+
         if shouldStart:
-            self.handler.send_response(302)
-            self.handler.send_header("Location", url)
-            self.handler.end_headers()
-        # time.sleep(200)
-#            logger.debug('tut 361')
-#            self.ace._streamReaderState = 1
-#            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter, req_headers)
-#            gevent.sleep()
-#        else:
-#            logger.debug('tut 361')
-#            self.ace._streamReaderState = 1
-#            gevent.spawn(self.ace.startStreamReader, url, self.cid, AceStuff.clientcounter, req_headers)
-#            gevent.sleep()
+#              self.handler.send_response(302)
+#              self.handler.send_header("Location", url)
+#              self.handler.end_headers()
+#              time.sleep(200)
+            logger.debug('tut 361')
+            self.ace._streamReaderState = 1
+            gevent.spawn(self.ace.startStreamReaderPT, url, self.cid, self.AceStuff.clientcounter, req_headers)
+            gevent.sleep()
+        else:
+            self.ace.req_headers = req_headers
+#             logger.debug('tut 361')
+#             self.ace._streamReaderState = 1
+#             gevent.spawn(self.ace.startStreamReader, url, self.cid, self.AceStuff.clientcounter, req_headers)
+#             gevent.sleep()
 
 #        with self.ace._lock:
 #            start = time.time()

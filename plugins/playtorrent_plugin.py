@@ -10,7 +10,8 @@ To use it, go to http://127.0.0.1:8000/helloworld
 import traceback
 import gevent
 import gevent.monkey
-from gevent.queue import Full
+# from gevent.queue import Full
+# from acehttp import AceStuff
 # Monkeypatching and all the stuff
 gevent.monkey.patch_all()
 import aceclient
@@ -22,8 +23,10 @@ import urlparse
 import vlcclient
 from modules.PluginInterface import AceProxyPlugin
 from httpclient.httpclient import Client
-from datetime import datetime
+# from datetime import datetime
 import time
+
+VIDEO_DESTROY_DELAY = 3
 
 class Playtorrent(AceProxyPlugin):
     handlers = ('playtorrent', 'playpid')
@@ -100,16 +103,26 @@ class Playtorrent(AceProxyPlugin):
         self.connection.path_unquoted = urllib2.unquote(self.connection.splittedpath[2])
         contentid = self.connection.getCid(self.connection.reqtype, self.connection.path_unquoted)
         cid = contentid if contentid else self.connection.path_unquoted
-        cid = str(datetime.now()) + ' ' + cid
+        # cid = str(datetime.now()) + ' ' + cid
         logger.debug("CID: " + cid)
         self.connection.client = Client(cid, self.connection, channelName, channelIcon)
         logger.debug("%s: client=%s" % (cid, self.connection.client))
         self.connection.vlcid = urllib2.quote(cid, '')
-        logger.debug("%s: client=%s" % (cid, self.connection.client))
-        self.connection.client = self.AceStuff.clientcounter.add(cid, self.connection.client)
+        # self.connection.client = self.AceStuff.clientcounter.add(cid, self.connection.client)
+
+        shouldStart = self.AceStuff.clientcounter.check_cid(cid)
+        logger.debug("%s: shouldStart=%s" % (cid, shouldStart))
+        while self.AceStuff.clientcounter.check_pt(cid, self.connection.client):
+            logger.debug("%s: sleep1" % (cid,))
+            time.sleep(1)
+
+        self.AceStuff.clientcounter.add_pt(cid, self.connection.client)
+
+
+        # shouldStart = self.AceStuff.clientcounter.add_pt(cid, self.connection.client)
         logger.debug("%s: client=%s" % (cid, self.connection.client))
         logger.debug("%s: connection=%s" % (cid, self.connection))
-        shouldStart = True
+
 
 
         # Send fake headers if this User-Agent is in fakeheaderuas tuple
@@ -131,6 +144,7 @@ class Playtorrent(AceProxyPlugin):
 #             logger.debug("%s wait self.connection.client.ace" % cid)
 #             time.sleep(1)
         try:
+            self.connection.errorhappened = False
             # Initializing AceClient
             if shouldStart:
                 if contentid:
@@ -150,19 +164,17 @@ class Playtorrent(AceProxyPlugin):
                 logger.debug("getting url done")
                 logger.debug("%s: connection=%s" % (cid, self.connection))
                 # Rewriting host for remote Ace Stream Engine
-                # self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', self.AceConfig.acehost)
-                self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', '176.124.137.239')
+                self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', self.AceConfig.acehost)
+                self.connection.client.ace.req_headers = {}
+                # self.connection.url = self.connection.client.ace.url = self.connection.url.replace('127.0.0.1', '176.124.137.239')
                 # self.url = self.url.replace('127.0.0.1', '192.168.0.214')
-                logger.debug('redirect to: %s' % self.connection.url)
-                self.connection.send_response(302)
-                self.connection.send_header("Location", self.connection.url)
-                self.connection.end_headers()
-                time.sleep(200)
-                return
+#                 logger.debug('redirect to: %s' % self.connection.url)
+#                 self.connection.send_response(302)
+#                 self.connection.send_header("Location", self.connection.url)
+#                 self.connection.end_headers()
+#                 time.sleep(200)
+#                 return
 
-            self.connection.errorhappened = False
-
-            if shouldStart:
                 logger.debug("Got url " + self.connection.url)
                 # If using VLC, add this url to VLC
                 if self.AceConfig.vlcuse:
@@ -182,10 +194,14 @@ class Playtorrent(AceProxyPlugin):
                     # Sleep a bit, because sometimes VLC doesn't open port in
                     # time
                     gevent.sleep(0.5)
+            else:
+                logger.debug('self.connection.url: %s' % self.connection.url)
+                logger.debug('self.connection.client.ace.url: %s' % self.connection.client.ace.url)
+                self.connection.url = self.connection.client.ace.url
 
-            # self.hanggreenlet = gevent.spawn(self.hangDetector)
-            # logger.debug("hangDetector spawned")
-            # gevent.sleep()
+#             self.hanggreenlet = gevent.spawn(self.connection.hangDetector)
+#             logger.debug("hangDetector spawned")
+#             gevent.sleep()
 
             # Building new VLC url
             if self.AceConfig.vlcuse:
@@ -219,14 +235,18 @@ class Playtorrent(AceProxyPlugin):
                     logger.debug("Headers sent")
 
                 # Run proxyReadWrite
-                self.connection.proxyReadWrite()
+                # self.connection.proxyReadWrite()
+                self.connection.client.handle(self.AceStuff, shouldStart, self.url, fmt, self.connection.headers)
             else:
                 if not fmt:
                     fmt = self.connection.reqparams.get('fmt')[0] if self.connection.reqparams.has_key('fmt') else None
-#                logger.debug('self.connection.headers=%s' % type(self.connection.headers))
-#                logger.debug('self.connection.headers=%s' % str(self.connection.headers))
-#                self.client.handle(shouldStart, self.url, fmt, self.headers)
-#                logger.debug('tut 368')
+
+#                 self.connection.client.handle(self.AceStuff, shouldStart, self.connection.url, fmt, self.connection.headers)
+#                 time.sleep(200)
+
+
+
+
                 # Sending client headers to videostream
                 if self.connection.url:
 #                     self.url = self.url.replace('127.0.0.1', '192.168.0.214')
@@ -298,17 +318,19 @@ class Playtorrent(AceProxyPlugin):
             self.connection.dieWithError()
         finally:
             pass
-#             if self.AceConfig.videodestroydelay and not self.connection.errorhappened and self.AceStuff.clientcounter.count(cid) == 1:
-#                 # If no error happened and we are the only client
-#                 try:
-#                     logger.debug("Sleeping for " + str(self.AceConfig.videodestroydelay) + " seconds")
-#                     gevent.sleep(self.AceConfig.videodestroydelay)
-#                 except:
-#                     pass
+            if self.connection.errorhappened and self.AceStuff.clientcounter.count_pt(cid) == 0:
+                # If no error happened and we are the only client
+                try:
+                    logger.debug("Sleeping for " + str(VIDEO_DESTROY_DELAY) + " seconds")
+                    gevent.sleep(VIDEO_DESTROY_DELAY)
+                except:
+                    pass
 
             try:
-                remaining = self.AceStuff.clientcounter.delete(cid, self.connection.client)
-                self.connection.client.destroy()
+                logger.debug("%s: client=%s" % (cid, self.connection.client))
+                remaining = self.AceStuff.clientcounter.delete_pt(cid, self.connection.client)
+                if self.connection.client:
+                    self.connection.client.destroy()
                 self.connection.ace = None
                 self.connection.client = None
                 if self.AceConfig.vlcuse and remaining == 0:
@@ -319,6 +341,7 @@ class Playtorrent(AceProxyPlugin):
                 logger.debug("END REQUEST")
             except:
                 logger.error(traceback.format_exc())
+
     def getCid(self, reqtype, url):
         cid = ''
 

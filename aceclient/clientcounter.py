@@ -15,6 +15,8 @@ class ClientCounter(object):
         self.clients = dict()
         self.idleace = None
         self.total = 0
+        self.pt_clients = dict()
+        self.pt_ace = dict()
         gevent.spawn(self.checkIdle)
 
     def count(self, cid):
@@ -25,6 +27,83 @@ class ClientCounter(object):
     def getClients(self, cid):
         with self.lock:
             return self.clients.get(cid)
+
+    def getClientsPT(self, cid):
+        with self.lock:
+            return self.pt_clients.get(cid)
+
+    def check_cid(self, cid):
+        if self.pt_ace.has_key(cid):
+            return False
+        return True
+
+    def check_pt(self, cid, client):
+        clients = self.pt_clients.get(cid)
+        logging.error('%s: check_pt  clients: %s' % (cid, clients))
+        if clients:
+            if client in clients:
+                del(clients[clients.index(client)])
+                if clients:
+                    return True
+            else:
+                return True
+        return False
+
+    def add_pt(self, cid, client):
+        do_start = True
+        with self.lock:
+            clients = self.pt_clients.get(cid)
+            logging.error('%s: add_pt' % cid)
+            logging.error('%s: clients=%s' % (cid, clients))
+            logging.error('%s: self.pt_ace.has_key(cid)=%s' % (cid, self.pt_ace.has_key(cid)))
+            if clients:
+                # client.ace = clients[0].ace
+                # clients[0].destroy()
+                do_start = False
+                return do_start
+
+            if self.pt_ace.has_key(cid):
+                do_start = False
+                client.ace = self.pt_ace[cid]
+            else:
+                if self.idleace:
+                    client.ace = self.pt_ace[cid] = self.idleace
+                    self.idleace = None
+                else:
+                    try:
+                        client.ace = self.pt_ace[cid] = self.createAce()
+                    except Exception as e:
+                        logging.error('Failed to create AceClient: ' + repr(e))
+                        raise e
+
+            logging.error('%s: self.idleace=%s' % (cid, self.idleace))
+
+            clients = [client]
+            self.pt_clients[cid] = clients
+
+            self.total += 1
+            logging.error('%s: end add %s' % (cid, len(clients)))
+            logging.error('%s: end add %s' % (cid, client))
+            # return len(clients)
+            return do_start
+
+    def delete_pt(self, cid, client):
+        with self.lock:
+            if not self.pt_clients.has_key(cid):
+                return 0
+            logging.error('%s: delete_pt client=%s' % (cid, client))
+            clients = self.pt_clients[cid]
+            logging.error('%s: clients=%s' % (cid, clients))
+            if client not in clients:
+                return len(clients)
+
+            try:
+                clients.remove(client)
+                self.pt_clients[cid] = clients
+                return len(clients)
+
+            finally:
+                self.total -= 1
 
     def add(self, cid, client):
         with self.lock:

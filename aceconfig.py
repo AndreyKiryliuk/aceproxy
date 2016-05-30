@@ -170,7 +170,7 @@ class AceConfig(acedefconfig.AceDefConfig):
     videoseekback = 0
     # Delay before closing Ace Stream connection when client disconnects
     # In seconds.
-    videodestroydelay = 0
+    videodestroydelay = 10
     # Pre-buffering timeout. In seconds.
     videotimeout = 140
     #

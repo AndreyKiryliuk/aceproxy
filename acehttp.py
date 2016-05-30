@@ -129,6 +129,8 @@ class HTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
             logger.warning("Video connection dropped")
         finally:
             self.video.close()
+            logger.warning("self.client: %s" % (self.client))
+            AceStuff.clientcounter.delete_pt(self.client.cid, self.client)
             if self.client:
                 self.client.destroy()
 
